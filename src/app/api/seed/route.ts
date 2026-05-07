@@ -19,31 +19,50 @@ export async function POST() {
       });
     }
 
-    const session = await db.checkoutSession.create({
-      data: {
+    // Primary test: 30 EUR product (EURO flow)
+    const session = await db.checkoutSession.upsert({
+      where: { ref: 'DEMOPAY01' },
+      create: {
         ref: 'DEMOPAY01',
         merchantRef: 'REF-2025-001',
         merchantId: merchant.id,
-        productName: 'Atlas Pro Wireless Headphones',
-        productDesc: 'Premium noise-cancelling headphones with 40h battery life',
-        amount: 12999,
+        productName: 'Atlas Digital Services',
+        productDesc: 'Monthly subscription - Premium plan',
+        amount: 3000, // €30.00 in cents
         currency: 'EUR',
         locale: 'pt',
         status: 'pending',
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
+      update: {
+        productName: 'Atlas Digital Services',
+        productDesc: 'Monthly subscription - Premium plan',
+        amount: 3000,
+        currency: 'EUR',
+        status: 'pending',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
     });
 
-    const session2 = await db.checkoutSession.create({
-      data: {
+    const session2 = await db.checkoutSession.upsert({
+      where: { ref: 'DEMOPAY02' },
+      create: {
         ref: 'DEMOPAY02',
         merchantRef: 'REF-2025-002',
         merchantId: merchant.id,
-        productName: 'Smart Watch Ultra',
-        productDesc: 'Advanced fitness tracking with GPS and heart rate monitor',
-        amount: 29900,
+        productName: 'Atlas Digital Services',
+        productDesc: 'Monthly subscription - Premium plan',
+        amount: 3000, // $30.00 in cents
         currency: 'USD',
         locale: 'en',
+        status: 'pending',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+      update: {
+        productName: 'Atlas Digital Services',
+        productDesc: 'Monthly subscription - Premium plan',
+        amount: 3000,
+        currency: 'USD',
         status: 'pending',
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
