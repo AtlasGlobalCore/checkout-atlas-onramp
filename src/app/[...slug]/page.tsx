@@ -265,36 +265,15 @@ function CheckoutPageInner({
     );
   }, []);
 
-  const handlePay = useCallback(async () => {
+  // New: handle payment success (no redirect needed)
+  const handlePaymentSuccess = useCallback(() => {
     setState((prev) => {
       if (prev.phase !== 'checkout') return prev;
-      const { data } = prev;
-
-      fetch('/api/checkout/initiate-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: data.id }),
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error('Payment initiation failed');
-          return res.json();
-        })
-        .then((json) => {
-          if (json.success && json.data?.redirectUrl) {
-            window.location.href = json.data.redirectUrl;
-          } else if (json.data?.status === 'paid') {
-            setState({
-              phase: 'success',
-              ref: data.ref,
-              merchantRef: data.merchantRef,
-            });
-          }
-        })
-        .catch(() => {
-          // PaymentStep handles resetting the loading state
-        });
-
-      return prev;
+      return {
+        phase: 'success',
+        ref: prev.data.ref,
+        merchantRef: prev.data.merchantRef,
+      };
     });
   }, []);
 
@@ -366,8 +345,8 @@ function CheckoutPageInner({
               key="step3"
               data={data}
               customer={customer}
-              onPay={handlePay}
               onBack={handlePaymentBack}
+              onSuccess={handlePaymentSuccess}
             />
           )}
         </AnimatePresence>

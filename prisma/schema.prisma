@@ -37,7 +37,7 @@ model CheckoutSession {
   // Order details (visible on checkout)
   productName       String       @map("product_name")
   productDesc       String?      @map("product_desc")
-  amount            Int          // Amount in cents (e.g., 4999 = €49.99)
+  amount            Int          // Amount in cents (e.g., 3000 = €30.00)
   currency          String       @default("EUR")  // EUR or USD
 
   // Session metadata
@@ -47,9 +47,12 @@ model CheckoutSession {
   paidAt            DateTime?    @map("paid_at")
   cancelledAt       DateTime?    @map("cancelled_at")
 
-  // Stripe session data
-  stripeSessionId   String?      @map("stripe_session_id")
+  // Stripe Payment Intent (embedded checkout)
+  paymentIntentId   String?      @map("payment_intent_id")
   stripeClientSecret String?     @map("stripe_client_secret")
+
+  // Legacy: Stripe Crypto Onramp (kept for Phase 2 treasury)
+  stripeSessionId   String?      @map("stripe_session_id")
   stripeRedirectUrl String?      @map("stripe_redirect_url")
 
   // Customer data (KYC L1/L2 compliant)

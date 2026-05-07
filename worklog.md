@@ -53,3 +53,49 @@ Stage Summary:
 - Zero referências a crypto no frontend (checkout e componentes)
 - Crypto é tratado apenas como fluxo de tesouraria no backend (Stripe onramp_sessions)
 - CRM forwarding configurado para https://api.atlasglobal.digital/api/v1/crm/checkout
+
+---
+Task ID: 4
+Agent: Main Orchestrator
+Task: Redesign do fluxo de pagamento — Stripe Payment Elements Embedded (sem redirect)
+
+Work Log:
+- Instalou pacotes: stripe, @stripe/stripe-js, @stripe/react-stripe-js
+- Identificou problema crítico: a abordagem anterior (Stripe Crypto Onramp redirect) expõe referências a crypto ao cliente final
+- Decisão arquitetural: trocar de Crypto Onramp redirect → Stripe Payment Intents + Payment Elements embedded
+- Atualizou Prisma schema: adicionado campo paymentIntentId para Payment Intents
+- Criou /api/checkout/create-payment-intent — cria Stripe Payment Intent (demo ou live)
+- Criou /api/checkout/confirm-payment — confirma pagamento e atualiza sessão
+- Criou componente StripePaymentForm com Payment Element embedded + demo mode
+- Reescreveu PaymentStep.tsx: embedded payment form com loading/error/processing states
+- Atualizou webhook handler: suporta payment_intent.succeeded/failed/canceled + legacy crypto events
+- Atualizou [.slug]/page.tsx: onSuccess callback em vez de redirect
+- Atualizado stripe.ts: getStripe() helper, SDK initialization
+- Adicionadas 12 novas traduções i18n para estados de pagamento (PT/EN/ES/FR)
+- Atualizado .env.local com documentação clara e USDC config para Phase 2
+- Atualizada página raiz com links de demo checkout
+
+Stage Summary:
+- Arquitetura nova: cliente paga via Stripe Payment Elements (card, GPay, Apple Pay, SEPA) — ZERO referências a crypto
+- O cliente NUNCA sai da página — pagamento embedded com UI Atlas
+- Crypto onramp reservado para Phase 2 (tesouraria backend, invisível ao cliente)
+- Moeda recomendada para tesouraria EUR: USDC (Ethereum) — stablecoin, sem volatilidade
+- Demo mode funcional: simula pagamento com sucesso quando Stripe não está configurado
+- Lint passa sem erros
+- Rotas de teste: /demo-store/DEMOPAY01 (€30 EUR) e /demo-store/DEMOPAY02 ($30 USD)
+
+---
+Task ID: 5
+Agent: Main Orchestrator
+Task: Configuração de credenciais Stripe para produção
+
+Work Log:
+- .env.local preparado com 3 chaves Stripe: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+- Adicionado config de tesouraria: ATLAS_DESTINATION_CURRENCY=usdc, ATLAS_DESTINATION_NETWORK=ethereum
+- Validação: seed + load API testados com sucesso
+- Lint: zero erros
+
+Stage Summary:
+- Para ativar Stripe live: inserir credenciais no .env.local
+- Fluxo: (1) Customer preenche dados → (2) Embedded Payment Element (card/GPay) → (3) Confirmação → (4) Webhook atualiza status
+- Webhook endpoint: POST /api/webhooks/stripe (handle: payment_intent.succeeded)

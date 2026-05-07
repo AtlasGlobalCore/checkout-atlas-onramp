@@ -1,8 +1,29 @@
 import { db } from '@/lib/db';
+import Stripe from 'stripe';
 
-// Stripe Crypto Onramp Service
-// Creates onramp sessions server-side for treasury flow
-// Customer data is pre-filled to minimize friction and hide crypto references
+// ─── Stripe SDK Instance ──────────────────────────────────────────
+let _stripe: Stripe | null = null;
+
+export function getStripe(): Stripe | null {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  if (!_stripe) {
+    _stripe = new Stripe(key, {
+      apiVersion: '2025-04-30.basil',
+    });
+  }
+  return _stripe;
+}
+
+// ─── Stripe Payment Intent (Embedded Checkout) ───────────────────
+// Used for customer-facing embedded payment (card, GPay, Apple Pay, SEPA)
+// This creates a Payment Intent that renders as an embedded Payment Element
+// Customer never leaves the page - ZERO crypto references
+
+// ─── Stripe Crypto Onramp Service ────────────────────────────────
+// Phase 2: Used for treasury conversion AFTER fiat payment succeeds
+// Converts received EUR to USDC on Ethereum and sends to merchant wallet
+// This is completely invisible to the end customer
 
 interface StripeOnrampSessionParams {
   sourceAmount: number;        // Amount in cents
@@ -51,11 +72,8 @@ interface StripeOnrampSessionResponse {
 }
 
 export async function createOnrampSession(params: StripeOnrampSessionParams): Promise<StripeOnrampSessionResponse> {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY is not configured');
-  }
+  const stripe = getStripe();
+  if (!stripe) throw new Error('STRIPE_SECRET_KEY is not configured');
 
   const body = new URLSearchParams({
     'source_amount': String(params.sourceAmount / 100), // Convert cents to decimal
@@ -84,11 +102,14 @@ export async function createOnrampSession(params: StripeOnrampSessionParams): Pr
   const response = await fetch('https://api.stripe.com/v1/crypto/onramp_sessions', {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${Buffer.from(`${stripeSecretKey}:`).toString('base64')}`,
+      'Authorization': `Basic ${Buffer.from(`${params.sourceAmount}:${params.sourceCurrency}`).toString('base64')}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: body.toString(),
   });
+
+  // NOTE: This is Phase 2 — treasury conversion after successful fiat payment
+  // The customer NEVER interacts with this API directly
 
   if (!response.ok) {
     const errorData = await response.text();
@@ -100,7 +121,7 @@ export async function createOnrampSession(params: StripeOnrampSessionParams): Pr
   return data as StripeOnrampSessionResponse;
 }
 
-// Forward customer data to Atlas CRM
+// ─── CRM Forwarding ──────────────────────────────────────────────
 export async function forwardToCRM(sessionId: string, customerData: Record<string, unknown>) {
   const crmWebhookUrl = process.env.ATLAS_CRM_WEBHOOK_URL || 'https://api.atlasglobal.digital/api/v1/crm/checkout';
 
@@ -119,6 +140,17 @@ export async function forwardToCRM(sessionId: string, customerData: Record<strin
       }),
     });
 
+    // Update CRM forwarded status
+    if (response.ok) {
+      await db.checkoutSession.update({
+        where: { id: sessionId },
+        data: {
+          crmForwarded: true,
+          crmForwardedAt: new Date(),
+        },
+      });
+    }
+
     return response.ok;
   } catch (error) {
     console.error('CRM forwarding error:', error);
@@ -126,7 +158,7 @@ export async function forwardToCRM(sessionId: string, customerData: Record<strin
   }
 }
 
-// Audit logging
+// ─── Audit Logging ───────────────────────────────────────────────
 export async function logAudit(action: string, sessionId?: string, metadata?: Record<string, unknown>) {
   await db.auditLog.create({
     data: {
@@ -137,7 +169,7 @@ export async function logAudit(action: string, sessionId?: string, metadata?: Re
   });
 }
 
-// Verify Stripe webhook signature
+// ─── Webhook Signature Verification ──────────────────────────────
 export function verifyStripeWebhook(payload: string, signature: string): boolean {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
@@ -145,8 +177,7 @@ export function verifyStripeWebhook(payload: string, signature: string): boolean
     return true; // Allow in dev mode
   }
 
-  // In production, use @stripe/stripe-js or crypto to verify
-  // For now, basic timing check
+  // In production, use Stripe SDK's constructEvent
   try {
     const parsed = JSON.parse(payload);
     const timestamp = parsed.created || parsed.object === 'event' ? parsed.created : null;

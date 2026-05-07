@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { logAudit } from '@/lib/stripe';
+import { logAudit, forwardToCRM } from '@/lib/stripe';
+import Stripe from 'stripe';
 
 // POST /api/webhooks/stripe - Stripe webhook handler
 export async function POST(request: NextRequest) {
@@ -8,19 +9,123 @@ export async function POST(request: NextRequest) {
     const payload = await request.text();
     const signature = request.headers.get('stripe-signature') || '';
 
-    // Verify webhook (basic check)
-    if (!signature && !process.env.STRIPE_WEBHOOK_SECRET) {
-      console.warn('Webhook received without signature and no secret configured');
-    }
+    // Verify webhook signature in production
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    let event: Stripe.Event;
 
-    const event = JSON.parse(payload);
+    if (webhookSecret) {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+        apiVersion: '2025-04-30.basil',
+      });
+      try {
+        event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+      } catch (err) {
+        console.error('Webhook signature verification failed:', err);
+        return NextResponse.json(
+          { error: 'Invalid signature' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Dev mode: parse without verification
+      event = JSON.parse(payload);
+    }
 
     await logAudit('webhook_received', undefined, {
       type: event.type,
       eventId: event.id,
     });
 
-    // Handle different event types
+    // Handle Payment Intent events (primary flow)
+    switch (event.type) {
+      case 'payment_intent.succeeded': {
+        const pi = event.data?.object as Stripe.PaymentIntent;
+        const sessionId = pi.metadata?.sessionId;
+
+        if (sessionId && pi.metadata?.orderRef) {
+          const updated = await db.checkoutSession.updateMany({
+            where: {
+              id: sessionId,
+              status: { in: ['processing', 'pending'] },
+            },
+            data: {
+              status: 'paid',
+              paidAt: new Date(),
+              paymentIntentId: pi.id,
+            },
+          });
+
+          if (updated.count > 0) {
+            await logAudit('webhook_payment_succeeded', sessionId, {
+              paymentIntentId: pi.id,
+              amount: pi.amount,
+              currency: pi.currency,
+            });
+
+            // Forward to CRM
+            const session = await db.checkoutSession.findUnique({
+              where: { id: sessionId },
+            });
+            if (session) {
+              try {
+                await forwardToCRM(sessionId, {
+                  orderRef: session.ref,
+                  merchantRef: session.merchantRef,
+                  amount: session.amount,
+                  currency: session.currency,
+                  customerEmail: session.customerEmail,
+                  customerName: `${session.customerFirstName || ''} ${session.customerLastName || ''}`.trim(),
+                  status: 'paid',
+                  paymentIntentId: pi.id,
+                  source: 'webhook',
+                });
+              } catch {
+                // CRM failure non-blocking
+              }
+            }
+          }
+        }
+        break;
+      }
+
+      case 'payment_intent.payment_failed': {
+        const pi = event.data?.object as Stripe.PaymentIntent;
+        const sessionId = pi.metadata?.sessionId;
+
+        if (sessionId) {
+          await db.checkoutSession.updateMany({
+            where: { id: sessionId },
+            data: { status: 'failed' },
+          });
+          await logAudit('webhook_payment_failed', sessionId, {
+            paymentIntentId: pi.id,
+            lastPaymentError: pi.last_payment_error?.message,
+          });
+        }
+        break;
+      }
+
+      case 'payment_intent.canceled': {
+        const pi = event.data?.object as Stripe.PaymentIntent;
+        const sessionId = pi.metadata?.sessionId;
+
+        if (sessionId) {
+          await db.checkoutSession.updateMany({
+            where: { id: sessionId },
+            data: {
+              status: 'cancelled',
+              cancelledAt: new Date(),
+            },
+          });
+          await logAudit('webhook_payment_cancelled', sessionId, {
+            paymentIntentId: pi.id,
+          });
+        }
+        break;
+      }
+    }
+
+    // Handle Crypto Onramp events (legacy / Phase 2 treasury)
     switch (event.type) {
       case 'crypto.onramp_session.completed': {
         const onrampSession = event.data?.object;
@@ -32,7 +137,7 @@ export async function POST(request: NextRequest) {
               paidAt: new Date(),
             },
           });
-          await logAudit('webhook_payment_completed', undefined, {
+          await logAudit('webhook_onramp_completed', undefined, {
             stripeSessionId: onrampSession.id,
           });
         }
@@ -63,9 +168,6 @@ export async function POST(request: NextRequest) {
         }
         break;
       }
-
-      default:
-        console.log(`Unhandled webhook event type: ${event.type}`);
     }
 
     return NextResponse.json({ received: true });
