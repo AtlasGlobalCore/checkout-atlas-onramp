@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { createOnrampSession, logAudit } from '@/lib/stripe';
+import { createOnrampSession } from '@/lib/stripe';
 
 // POST /api/checkout/initiate-payment - Create Stripe onramp session for payment
+// NOTE: Phase 2 - This route uses the full onramp flow with DB session
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -15,7 +15,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find and validate session
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const merchantWallet = process.env.ATLAS_TREASURY_WALLET;
+
+    if (!stripeKey || !merchantWallet) {
+      return NextResponse.json(
+        { error: 'Payment service is not configured', code: 'config_error' },
+        { status: 503 }
+      );
+    }
+
+    const { db } = await import('@/lib/db');
+
     const session = await db.checkoutSession.findUnique({
       where: { id: sessionId },
       include: { merchant: true },
@@ -35,49 +46,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!session.customerEmail || !session.customerFirstName || !session.customerLastName) {
-      return NextResponse.json(
-        { error: 'Customer data is required before payment', code: 'missing_data' },
-        { status: 400 }
-      );
-    }
-
-    // Check if STRIPE is configured
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    const merchantWallet = process.env.ATLAS_TREASURY_WALLET;
-
-    // DEMO MODE: If Stripe is not configured, return a demo redirect
-    if (!stripeKey || !merchantWallet) {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
-      const demoRedirectUrl = `${baseUrl}/${encodeURIComponent(session.merchant.ref || session.merchant.id)}/${encodeURIComponent(session.ref)}?status=success&demo=true`;
-
-      await db.checkoutSession.update({
-        where: { id: sessionId },
-        data: {
-          status: 'paid',
-          paidAt: new Date(),
-          stripeRedirectUrl: demoRedirectUrl,
-        },
-      });
-
-      await logAudit('payment_demo_completed', sessionId, {
-        mode: 'demo',
-        amount: session.amount,
-        currency: session.currency,
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          mode: 'demo',
-          redirectUrl: demoRedirectUrl,
-          status: 'paid',
-          message: 'Demo mode: Stripe not configured. Payment simulated successfully.',
-        },
-      });
-    }
-
-    // PRODUCTION: Create real Stripe onramp session
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
     const returnUrl = `${baseUrl}/${encodeURIComponent(session.merchant.ref || session.merchant.id)}/${encodeURIComponent(session.ref)}?status=success`;
     const cancelUrl = `${baseUrl}/${encodeURIComponent(session.merchant.ref || session.merchant.id)}/${encodeURIComponent(session.ref)}?status=cancelled`;
@@ -89,9 +57,11 @@ export async function POST(request: NextRequest) {
         walletAddress: merchantWallet,
         destinationCurrency: 'usdc',
         destinationNetwork: 'ethereum',
-        customerEmail: session.customerEmail,
+        customerEmail: session.customerEmail || undefined,
         customerPhone: session.customerPhone || undefined,
-        customerName: `${session.customerFirstName} ${session.customerLastName}`,
+        customerName: session.customerFirstName && session.customerLastName
+          ? `${session.customerFirstName} ${session.customerLastName}`
+          : undefined,
         customerDob: session.customerDob || undefined,
         customerCountry: session.customerCountry || undefined,
         customerAddress: session.customerAddress1 ? {
@@ -105,7 +75,6 @@ export async function POST(request: NextRequest) {
         cancelUrl,
       });
 
-      // Update session with Stripe data
       await db.checkoutSession.update({
         where: { id: sessionId },
         data: {
@@ -114,12 +83,6 @@ export async function POST(request: NextRequest) {
           stripeClientSecret: stripeSession.client_secret,
           stripeRedirectUrl: stripeSession.redirect_url,
         },
-      });
-
-      await logAudit('stripe_session_created', sessionId, {
-        stripeSessionId: stripeSession.id,
-        amount: session.amount,
-        currency: session.currency,
       });
 
       return NextResponse.json({
@@ -134,11 +97,6 @@ export async function POST(request: NextRequest) {
       });
     } catch (stripeError) {
       console.error('Stripe onramp session creation failed:', stripeError);
-
-      await logAudit('stripe_session_failed', sessionId, {
-        error: stripeError instanceof Error ? stripeError.message : 'Unknown error',
-      });
-
       return NextResponse.json(
         { error: 'Payment processing initialization failed. Please try again.', code: 'stripe_error' },
         { status: 502 }

@@ -32,7 +32,7 @@ interface PaymentStepProps {
 interface PaymentIntentResponse {
   success: boolean;
   data: {
-    mode: 'demo' | 'live';
+    mode: 'live';
     clientSecret: string;
     publishableKey: string;
     amount: number;
@@ -60,12 +60,9 @@ export default function PaymentStep({
   const [paymentIntentData, setPaymentIntentData] = useState<PaymentIntentResponse['data'] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Map locale to Stripe locale
   const stripeLocale = stripeLocaleMap[locale] || 'en';
-
   const amountStr = formatAmount(data.order.amount, data.order.currency, locale);
 
-  // Load Stripe Payment Intent when component mounts
   useEffect(() => {
     let cancelled = false;
 
@@ -111,7 +108,6 @@ export default function PaymentStep({
     return () => { cancelled = true; };
   }, [data.id, t]);
 
-  // Handle payment success
   const handlePaymentSuccess = useCallback(async () => {
     setPaymentState('processing');
 
@@ -119,18 +115,12 @@ export default function PaymentStep({
       const res = await fetch('/api/checkout/confirm-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: data.id,
-          paymentIntentId: paymentIntentData?.mode === 'live' ? undefined : undefined,
-        }),
+        body: JSON.stringify({ sessionId: data.id }),
       });
 
       if (res.ok) {
         setPaymentState('success');
-        // Small delay for UX before showing success
-        setTimeout(() => {
-          onSuccess();
-        }, 800);
+        setTimeout(() => { onSuccess(); }, 800);
       } else {
         setErrorMessage(t('payment.confirm_error' as TK));
         setPaymentState('error');
@@ -139,19 +129,16 @@ export default function PaymentStep({
       setErrorMessage(t('payment.confirm_error' as TK));
       setPaymentState('error');
     }
-  }, [data.id, paymentIntentData, onSuccess, t]);
+  }, [data.id, onSuccess, t]);
 
-  // Handle payment error
   const handlePaymentError = useCallback((message: string) => {
     setErrorMessage(message);
     setPaymentState('ready');
   }, []);
 
-  // Retry loading
   const handleRetry = useCallback(() => {
     setErrorMessage(null);
     setPaymentState('loading');
-    // Trigger re-render by toggling a state
     window.location.reload();
   }, []);
 
@@ -168,11 +155,8 @@ export default function PaymentStep({
           <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
             {t('payment.title')}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {t('payment.subtitle')}
-          </p>
+          <p className="text-sm text-muted-foreground">{t('payment.subtitle')}</p>
         </div>
-
         <div className="bg-white rounded-xl border border-border p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -182,7 +166,6 @@ export default function PaymentStep({
             <span className="text-base font-bold">{amountStr}</span>
           </div>
         </div>
-
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="size-8 animate-spin text-primary" />
@@ -206,11 +189,8 @@ export default function PaymentStep({
           <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
             {t('payment.title')}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {t('payment.subtitle')}
-          </p>
+          <p className="text-sm text-muted-foreground">{t('payment.subtitle')}</p>
         </div>
-
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex flex-col items-center gap-3">
           <AlertCircle className="size-8 text-red-500" />
           <p className="text-sm text-red-700 text-center">{errorMessage || t('payment.load_error' as TK)}</p>
@@ -222,7 +202,6 @@ export default function PaymentStep({
             {t('btn.retry' as TK) || 'Tentar novamente'}
           </Button>
         </div>
-
         <div className="mt-4">
           <Button
             variant="outline"
@@ -237,7 +216,7 @@ export default function PaymentStep({
     );
   }
 
-  // ── Render: Success (brief flash before parent handles) ──
+  // ── Render: Success ─────────────────────────────────────
   if (paymentState === 'success' || paymentState === 'processing') {
     return (
       <motion.div
@@ -259,17 +238,13 @@ export default function PaymentStep({
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* Title */}
       <div className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">
           {t('payment.title')}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {t('payment.subtitle')}
-        </p>
+        <p className="text-sm text-muted-foreground">{t('payment.subtitle')}</p>
       </div>
 
-      {/* Order summary card */}
       <div className="bg-white rounded-xl border border-border p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-4">
         <div className="flex items-center gap-2 mb-3">
           <ShoppingBag className="size-4 text-primary" />
@@ -277,9 +252,7 @@ export default function PaymentStep({
         </div>
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0 mr-3">
-            <p className="text-sm font-medium text-foreground truncate">
-              {data.order.productName}
-            </p>
+            <p className="text-sm font-medium text-foreground truncate">{data.order.productName}</p>
             {data.merchantRef && (
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                 <Hash className="size-3" />
@@ -287,13 +260,10 @@ export default function PaymentStep({
               </p>
             )}
           </div>
-          <span className="text-lg font-bold text-foreground shrink-0">
-            {amountStr}
-          </span>
+          <span className="text-lg font-bold text-foreground shrink-0">{amountStr}</span>
         </div>
       </div>
 
-      {/* Customer data card (collapsed) */}
       <div className="bg-secondary/40 rounded-xl border border-border p-4 mb-4">
         <div className="flex items-center gap-2 mb-2">
           <User className="size-3.5 text-muted-foreground" />
@@ -301,18 +271,15 @@ export default function PaymentStep({
         </div>
         <div className="text-sm text-foreground">
           <span className="font-medium">{customer.firstName} {customer.lastName}</span>
-          <span className="text-muted-foreground mx-2">·</span>
+          <span className="text-muted-foreground mx-2">&middot;</span>
           <span className="text-muted-foreground">{customer.email}</span>
         </div>
       </div>
 
-      {/* Payment form */}
       <div className="bg-white rounded-xl border border-border p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)] mb-4">
         <div className="flex items-center gap-2 mb-4">
           <CreditCard className="size-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">
-            {paymentIntentData?.mode === 'demo' ? t('payment.method_demo' as TK) : t('payment.method' as TK)}
-          </h2>
+          <h2 className="text-sm font-semibold text-foreground">{t('payment.method')}</h2>
         </div>
 
         <AnimatePresence>
@@ -320,7 +287,6 @@ export default function PaymentStep({
             <PaymentFormWrapper
               clientSecret={paymentIntentData.clientSecret}
               publishableKey={paymentIntentData.publishableKey}
-              isDemo={paymentIntentData.mode === 'demo'}
               stripeLocale={stripeLocale}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={handlePaymentError}
@@ -329,7 +295,6 @@ export default function PaymentStep({
         </AnimatePresence>
       </div>
 
-      {/* Back button */}
       <div className="mt-2">
         <Button
           variant="outline"
@@ -348,37 +313,20 @@ export default function PaymentStep({
 function PaymentFormWrapper({
   clientSecret,
   publishableKey,
-  isDemo,
   stripeLocale,
   onPaymentSuccess,
   onPaymentError,
 }: {
   clientSecret: string;
   publishableKey: string;
-  isDemo: boolean;
   stripeLocale: StripeElementLocale;
   onPaymentSuccess: () => void;
   onPaymentError: (message: string) => void;
 }) {
-  // Load Stripe.js
   const stripePromise = useMemo(() => {
-    if (isDemo) return Promise.resolve(null);
-    if (!publishableKey || publishableKey === 'pk_demo') return Promise.resolve(null);
+    if (!publishableKey) return null;
     return loadStripe(publishableKey);
-  }, [publishableKey, isDemo]);
-
-  // Demo mode: render without Stripe Elements
-  if (isDemo) {
-    return (
-      <Elements stripe={null as unknown as ReturnType<typeof loadStripe>} options={{ clientSecret }}>
-        <StripePaymentForm
-          isDemo={true}
-          onPaymentSuccess={onPaymentSuccess}
-          onPaymentError={onPaymentError}
-        />
-      </Elements>
-    );
-  }
+  }, [publishableKey]);
 
   if (!stripePromise) {
     return (
@@ -386,7 +334,7 @@ function PaymentFormWrapper({
         <div className="flex flex-col items-center gap-3">
           <AlertCircle className="size-6 text-amber-500" />
           <p className="text-sm text-muted-foreground">
-            Stripe is not configured. Running in demo mode.
+            Stripe is not configured.
           </p>
         </div>
       </div>
@@ -423,7 +371,6 @@ function PaymentFormWrapper({
       }}
     >
       <StripePaymentForm
-        isDemo={false}
         onPaymentSuccess={onPaymentSuccess}
         onPaymentError={onPaymentError}
       />

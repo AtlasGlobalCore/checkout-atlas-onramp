@@ -294,7 +294,7 @@ function CheckoutPageInner({
   if (state.phase === 'error') {
     return (
       <I18nProvider initialLocale={locale}>
-        <CheckoutShell storeName="Atlas Checkout">
+        <CheckoutShell storeName="SafePay Checkout">
           <CheckoutError type={state.type} onRetry={handleRetry} />
         </CheckoutShell>
       </I18nProvider>
@@ -304,7 +304,7 @@ function CheckoutPageInner({
   if (state.phase === 'success') {
     return (
       <I18nProvider initialLocale={locale}>
-        <CheckoutShell storeName="Atlas Checkout">
+        <CheckoutShell storeName="SafePay Checkout">
           <CheckoutSuccess
             orderRef={state.ref}
             merchantRef={state.merchantRef}

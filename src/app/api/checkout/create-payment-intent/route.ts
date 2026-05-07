@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { logAudit } from '@/lib/stripe';
-import Stripe from 'stripe';
 
 // POST /api/checkout/create-payment-intent
 // Creates a Stripe Payment Intent for embedded checkout (card, GPay, Apple Pay, SEPA)
+// NOTE: Phase 2 - This route requires Stripe API key to be configured (no demo fallback)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -16,6 +14,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+    if (!stripeKey) {
+      return NextResponse.json(
+        { error: 'Payment service is not configured', code: 'config_error' },
+        { status: 503 }
+      );
+    }
+
+    // Import dynamically to avoid issues when Stripe is not installed
+    const { db } = await import('@/lib/db');
+    const Stripe = (await import('stripe')).default;
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: '2025-04-30.basil',
+    });
 
     // Find and validate session
     const session = await db.checkoutSession.findUnique({
@@ -37,54 +51,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!session.customerEmail || !session.customerFirstName || !session.customerLastName) {
-      return NextResponse.json(
-        { error: 'Customer data is required before payment', code: 'missing_data' },
-        { status: 400 }
-      );
-    }
-
-    // Check if STRIPE is configured
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-
-    // DEMO MODE: If Stripe is not configured, return a demo client secret
-    if (!stripeKey) {
-      const demoClientSecret = `demo_${session.id}_${Date.now()}`;
-
-      await db.checkoutSession.update({
-        where: { id: sessionId },
-        data: {
-          status: 'processing',
-          paymentIntentId: `demo_pi_${session.ref}`,
-          stripeClientSecret: demoClientSecret,
-        },
-      });
-
-      await logAudit('payment_intent_created_demo', sessionId, {
-        mode: 'demo',
-        amount: session.amount,
-        currency: session.currency,
-      });
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          mode: 'demo',
-          clientSecret: demoClientSecret,
-          publishableKey: 'pk_demo',
-          amount: session.amount,
-          currency: session.currency.toLowerCase(),
-        },
-      });
-    }
-
-    // PRODUCTION: Create real Stripe Payment Intent
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: '2025-04-30.basil',
-    });
-
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: session.amount, // Already in cents
+      amount: session.amount,
       currency: session.currency.toLowerCase(),
       metadata: {
         sessionId: session.id,
@@ -93,16 +61,13 @@ export async function POST(request: NextRequest) {
         merchantRef: session.merchantRef || '',
         productName: session.productName,
       },
-      // Enable all payment methods automatically (card, GPay, Apple Pay, SEPA, etc.)
       automatic_payment_methods: {
         enabled: true,
       },
-      // Pre-fill customer email for Stripe
-      receipt_email: session.customerEmail,
+      receipt_email: session.customerEmail || undefined,
       description: `${session.productName} - ${session.ref}`,
     });
 
-    // Update session with Payment Intent data
     await db.checkoutSession.update({
       where: { id: sessionId },
       data: {
@@ -110,12 +75,6 @@ export async function POST(request: NextRequest) {
         paymentIntentId: paymentIntent.id,
         stripeClientSecret: paymentIntent.client_secret,
       },
-    });
-
-    await logAudit('payment_intent_created', sessionId, {
-      paymentIntentId: paymentIntent.id,
-      amount: session.amount,
-      currency: session.currency,
     });
 
     return NextResponse.json({
@@ -130,7 +89,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Create payment intent error:', error);
-
     return NextResponse.json(
       { error: 'Internal server error', code: 'server_error' },
       { status: 500 }

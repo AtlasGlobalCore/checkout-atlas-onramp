@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useStripe, useElements, PaymentElement } from '@stripe/react-stripe-js';
 import { Button } from '@/components/ui/button';
 import { Loader2, CreditCard, ShieldCheck } from 'lucide-react';
@@ -8,13 +8,11 @@ import { useI18n } from '@/i18n/provider';
 import type { TK } from '@/i18n/provider';
 
 interface StripePaymentFormProps {
-  isDemo: boolean;
   onPaymentSuccess: () => void;
   onPaymentError: (message: string) => void;
 }
 
 export default function StripePaymentForm({
-  isDemo,
   onPaymentSuccess,
   onPaymentError,
 }: StripePaymentFormProps) {
@@ -24,12 +22,9 @@ export default function StripePaymentForm({
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(!isDemo);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Handle Payment Element readiness
   useEffect(() => {
-    if (isDemo) return;
-
     if (!elements) return;
 
     const element = elements.getElement(PaymentElement);
@@ -47,22 +42,12 @@ export default function StripePaymentForm({
       element.off('loaderror', handleError);
       clearTimeout(timeout);
     };
-  }, [elements, isDemo]);
+  }, [elements]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements) {
-      return;
-    }
-
-    if (isDemo) {
-      // Demo mode: simulate successful payment
-      setIsProcessing(true);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      onPaymentSuccess();
-      return;
-    }
+    if (!stripe || !elements) return;
 
     setIsProcessing(true);
     setMessage(null);
@@ -70,12 +55,11 @@ export default function StripePaymentForm({
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: window.location.href, // Stay on same page
+        return_url: window.location.href,
       },
     });
 
     if (error) {
-      // Handle specific error types
       if (error.type === 'card_error' || error.type === 'validation_error') {
         setMessage(error.message || null);
         onPaymentError(error.message || t('payment.card_error' as TK));
@@ -84,15 +68,11 @@ export default function StripePaymentForm({
         onPaymentError(t('payment.generic_error' as TK));
       }
     } else {
-      // Payment is processing, the customer will be redirected
-      // But since we're using embedded mode, we stay on the page
-      // and the PaymentElement handles the redirect internally
-      // If no error and no redirect, it means the payment is in a processing state
       onPaymentSuccess();
     }
 
     setIsProcessing(false);
-  }, [stripe, elements, isDemo, onPaymentSuccess, onPaymentError, t]);
+  }, [stripe, elements, onPaymentSuccess, onPaymentError, t]);
 
   if (isLoading) {
     return (
@@ -107,36 +87,26 @@ export default function StripePaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Stripe Payment Element or Demo Form */}
-      {isDemo ? (
-        <DemoPaymentForm isProcessing={isProcessing} />
-      ) : (
-        <div className="rounded-xl border border-border overflow-hidden bg-white">
-          <PaymentElement
-            options={{
-              layout: 'tabs',
-              paymentMethodOrder: ['card', 'apple_pay', 'google_pay', 'sepa_debit'],
-            }}
-          />
-        </div>
-      )}
+      <div className="rounded-xl border border-border overflow-hidden bg-white">
+        <PaymentElement
+          options={{
+            layout: 'tabs',
+            paymentMethodOrder: ['card', 'apple_pay', 'google_pay', 'sepa_debit'],
+          }}
+        />
+      </div>
 
-      {/* Error message */}
       {message && (
         <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           <p className="text-sm text-red-700">{message}</p>
         </div>
       )}
 
-      {/* Secure badge */}
       <div className="flex items-center gap-2 px-1">
         <ShieldCheck className="size-4 text-muted-foreground" />
-        <p className="text-xs text-muted-foreground">
-          {t('payment.secure_note' as TK)}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('payment.secure_note' as TK)}</p>
       </div>
 
-      {/* Pay button */}
       <div className="pt-2">
         <Button
           type="submit"
@@ -146,69 +116,16 @@ export default function StripePaymentForm({
           {isProcessing ? (
             <>
               <Loader2 className="size-4 sm:size-5 animate-spin" />
-              {t('payment.processing' as TK)}
+              {t('payment.processing')}
             </>
           ) : (
             <>
               <CreditCard className="size-4 sm:size-5" />
-              {t('payment.pay_now' as TK)}
+              {t('payment.pay_now')}
             </>
           )}
         </Button>
       </div>
     </form>
-  );
-}
-
-// Demo mode payment form (simulates card input)
-function DemoPaymentForm({ isProcessing }: { isProcessing: boolean }) {
-  const { t } = useI18n();
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-border overflow-hidden bg-white p-5">
-        <div className="space-y-3">
-          {/* Card number */}
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">
-              {t('payment.card_number' as TK)}
-            </label>
-            <div className="h-11 rounded-lg border border-border bg-secondary/50 flex items-center px-3">
-              <span className="text-sm text-muted-foreground font-mono">
-                4242 4242 4242 4242
-              </span>
-            </div>
-          </div>
-
-          {/* Expiry + CVC */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">
-                {t('payment.expiry' as TK)}
-              </label>
-              <div className="h-11 rounded-lg border border-border bg-secondary/50 flex items-center px-3">
-                <span className="text-sm text-muted-foreground font-mono">12/28</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">
-                CVC
-              </label>
-              <div className="h-11 rounded-lg border border-border bg-secondary/50 flex items-center px-3">
-                <span className="text-sm text-muted-foreground font-mono">123</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Demo badge */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 flex items-center gap-2">
-        <div className="size-2 rounded-full bg-amber-400 animate-pulse" />
-        <p className="text-xs text-amber-800 font-medium">
-          {t('payment.demo_mode' as TK)}
-        </p>
-      </div>
-    </div>
   );
 }

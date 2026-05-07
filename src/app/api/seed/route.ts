@@ -1,112 +1,14 @@
-import { db } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
-// POST /api/seed - Create demo merchant + checkout for testing
+// POST /api/seed - DISABLED
+// Demo seeding has been removed in Phase 1.
+// Checkout sessions are now created directly via Stripe Crypto Onramp API.
 export async function POST() {
-  try {
-    let merchant = await db.merchant.findFirst({
-      where: { ref: 'demo-store' },
-    });
-
-    if (!merchant) {
-      merchant = await db.merchant.create({
-        data: {
-          ref: 'demo-store',
-          name: 'TechStore Premium',
-          apiKey: 'ak_live_demo_key_for_testing_only',
-          isActive: true,
-        },
-      });
-    }
-
-    // Primary test: 30 EUR product (EURO flow)
-    const session = await db.checkoutSession.upsert({
-      where: { ref: 'DEMOPAY01' },
-      create: {
-        ref: 'DEMOPAY01',
-        merchantRef: 'REF-2025-001',
-        merchantId: merchant.id,
-        productName: 'Atlas Digital Services',
-        productDesc: 'Monthly subscription - Premium plan',
-        amount: 3000, // €30.00 in cents
-        currency: 'EUR',
-        locale: 'pt',
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
-      update: {
-        productName: 'Atlas Digital Services',
-        productDesc: 'Monthly subscription - Premium plan',
-        amount: 3000,
-        currency: 'EUR',
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
-    });
-
-    const session2 = await db.checkoutSession.upsert({
-      where: { ref: 'DEMOPAY02' },
-      create: {
-        ref: 'DEMOPAY02',
-        merchantRef: 'REF-2025-002',
-        merchantId: merchant.id,
-        productName: 'Atlas Digital Services',
-        productDesc: 'Monthly subscription - Premium plan',
-        amount: 3000, // $30.00 in cents
-        currency: 'USD',
-        locale: 'en',
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
-      update: {
-        productName: 'Atlas Digital Services',
-        productDesc: 'Monthly subscription - Premium plan',
-        amount: 3000,
-        currency: 'USD',
-        status: 'pending',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      },
-    });
-
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
-
-    return NextResponse.json({
-      success: true,
-      message: 'Demo data created',
-      merchant: {
-        id: merchant.id,
-        name: merchant.name,
-        ref: merchant.ref,
-      },
-      checkoutSessions: [
-        {
-          url: `${baseUrl}/${merchant.ref}/${session.ref}`,
-          product: session.productName,
-          amount: session.amount,
-          currency: session.currency,
-        },
-        {
-          url: `${baseUrl}/${merchant.ref}/${session2.ref}`,
-          product: session2.productName,
-          amount: session2.amount,
-          currency: session2.currency,
-        },
-      ],
-      apiUsage: {
-        createCheckout: 'POST /api/checkout/create',
-        body: {
-          productName: 'Product Name',
-          amount: 4999,
-          currency: 'EUR',
-          orderRef: 'MY-ORDER-REF',
-        },
-        headers: {
-          Authorization: 'Bearer ak_live_demo_key_for_testing_only',
-        },
-      },
-    });
-  } catch (error) {
-    console.error('Seed error:', error);
-    return NextResponse.json({ error: 'Seed failed' }, { status: 500 });
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      message: 'Demo seeding has been removed. Use the onramp API to create payment sessions.',
+    },
+    { status: 410 }
+  );
 }
