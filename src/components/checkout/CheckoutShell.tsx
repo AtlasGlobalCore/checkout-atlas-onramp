@@ -2,7 +2,8 @@
 
 import React, { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Lock } from 'lucide-react';
+import Image from 'next/image';
+import { Shield } from 'lucide-react';
 import { useI18n, locales, localeNames, type Locale } from '@/i18n/provider';
 import {
   Select,
@@ -31,26 +32,26 @@ export default function CheckoutShell({
       <div className="w-full">
         <div className="max-w-xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            {storeLogoUrl ? (
-              <img
-                src={storeLogoUrl}
-                alt={storeName}
-                className="w-10 h-10 rounded-lg object-contain border border-border"
+            {/* Atlas logo (circular) */}
+            <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm ring-1 ring-border shrink-0">
+              <Image
+                src="/logo-atlas.jpg"
+                alt="Atlas"
+                width={40}
+                height={40}
+                className="object-cover w-full h-full"
               />
-            ) : (
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <Lock className="size-5 text-primary-foreground" />
-              </div>
-            )}
+            </div>
             <div>
               <p className="text-sm font-medium text-foreground leading-tight">{storeName}</p>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Lock className="size-3" />
+                <Shield className="size-3" />
                 {t('app.secure')}
               </p>
             </div>
           </div>
 
+          {/* Language selector */}
           <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
             <SelectTrigger className="w-auto h-8 text-xs border-border bg-white shadow-sm">
               <SelectValue />
@@ -81,9 +82,9 @@ export default function CheckoutShell({
       <footer className="mt-auto">
         <div className="max-w-xl mx-auto px-4 sm:px-6 py-6 sm:py-8 border-t border-border">
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <Lock className="size-3.5" />
+            <Shield className="size-3.5" />
             <span>
-              {t('footer.powered')} <span className="font-semibold text-foreground">SafePay</span>
+              {t('footer.powered')} <span className="font-semibold text-foreground">Atlas</span>
             </span>
             <span className="text-border">&middot;</span>
             <span>{t('footer.secure')}</span>

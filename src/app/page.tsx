@@ -3,8 +3,8 @@
 import React, { useState, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import {
-  Lock,
   ArrowRight,
   CheckCircle2,
   XCircle,
@@ -299,12 +299,12 @@ function PageInner() {
     setApiError(null);
 
     try {
-      const res = await fetch('/api/onramp/create', {
+      const res = await fetch('/api/checkout/create-onramp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: Math.round(amount * 100), // Convert to cents
-          currency,
+          sourceAmount: Math.round(amount * 100), // Convert to cents
+          sourceCurrency: currency.toLowerCase(),
         }),
       });
 
@@ -409,15 +409,22 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
           >
-            {/* SafePay Logo */}
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
-              <Lock className="size-7 sm:size-8 text-primary-foreground" strokeWidth={2.5} />
+            {/* Atlas Logo */}
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden shadow-lg shadow-primary/15 ring-2 ring-white mb-4">
+              <Image
+                src="/logo-atlas.jpg"
+                alt="Atlas Payments"
+                width={96}
+                height={96}
+                className="object-cover w-full h-full"
+                priority
+              />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              SafePay
+              Atlas
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Checkout seguro
+              Payments
             </p>
           </motion.div>
         </div>
@@ -432,9 +439,9 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
       <footer className="mt-auto">
         <div className="max-w-lg mx-auto px-4 sm:px-6 py-5 sm:py-6 border-t border-border">
           <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <Lock className="size-3" />
+            <Shield className="size-3.5" />
             <span>
-              Powered by <span className="font-semibold text-foreground">SafePay</span>
+              Powered by <span className="font-semibold text-foreground">Atlas</span>
             </span>
             <span className="text-border">&middot;</span>
             <span>Checkout seguro com encriptacao SSL</span>

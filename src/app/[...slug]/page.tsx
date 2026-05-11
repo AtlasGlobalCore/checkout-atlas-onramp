@@ -239,17 +239,33 @@ function CheckoutPageInner({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId: data.id,
-          ...customer,
+          email: customer.email,
+          phone: customer.phone,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          dob: customer.dob,
+          country: customer.country,
+          address1: customer.address1,
+          address2: customer.address2,
+          city: customer.city,
+          zip: customer.zip,
+          state: customer.state,
+          declarationAccepted: customer.declarationAccepted,
+          declarationTextVersion: '1.0',
         }),
       })
         .then((res) => {
           if (!res.ok) throw new Error('Customer submit failed');
           return res.json();
         })
-        .then(() => {
-          setState((p) =>
-            p.phase === 'checkout' ? { ...p, step: 3, customer } : p
-          );
+        .then((json) => {
+          // Only advance to payment if L1 is approved
+          if (json.success && json.data?.preKyc?.status === 'approved') {
+            setState((p) =>
+              p.phase === 'checkout' ? { ...p, step: 3, customer } : p
+            );
+          }
+          // If L1 rejected, stay on step 2 — the form retains data for correction
         })
         .catch(() => {
           // Stay on step 2, could show toast
@@ -294,7 +310,7 @@ function CheckoutPageInner({
   if (state.phase === 'error') {
     return (
       <I18nProvider initialLocale={locale}>
-        <CheckoutShell storeName="SafePay Checkout">
+        <CheckoutShell storeName="Atlas Payments">
           <CheckoutError type={state.type} onRetry={handleRetry} />
         </CheckoutShell>
       </I18nProvider>
@@ -304,7 +320,7 @@ function CheckoutPageInner({
   if (state.phase === 'success') {
     return (
       <I18nProvider initialLocale={locale}>
-        <CheckoutShell storeName="SafePay Checkout">
+        <CheckoutShell storeName="Atlas Payments">
           <CheckoutSuccess
             orderRef={state.ref}
             merchantRef={state.merchantRef}

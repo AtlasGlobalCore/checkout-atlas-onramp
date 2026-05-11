@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ export interface CustomerFormData {
   city: string;
   zip: string;
   state: string;
+  declarationAccepted: boolean;
 }
 
 interface CustomerFormProps {
@@ -58,9 +60,10 @@ export default function CustomerForm({ initialData, onSubmit, onBack }: Customer
     city: initialData?.city || '',
     zip: initialData?.zip || '',
     state: initialData?.state || '',
+    declarationAccepted: initialData?.declarationAccepted || false,
   });
 
-  const updateField = useCallback((field: keyof CustomerFormData, value: string) => {
+  const updateField = useCallback((field: keyof CustomerFormData, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     // Clear error on change
     if (errors[field]) {
@@ -90,6 +93,11 @@ export default function CustomerForm({ initialData, onSubmit, onBack }: Customer
       if (!form[field].trim()) {
         newErrors[field] = t('validation.required' as TK);
       }
+    }
+
+    // Declaration (L1 requirement)
+    if (!form.declarationAccepted) {
+      newErrors.declarationAccepted = t('declaration.error' as TK);
     }
 
     setErrors(newErrors);
@@ -335,6 +343,27 @@ export default function CustomerForm({ initialData, onSubmit, onBack }: Customer
                 autoComplete="address-level1"
               />
             </div>
+          </div>
+
+          {/* L1 Declaration */}
+          <div className="pt-2 border-t border-border">
+            <div className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${errors.declarationAccepted ? 'bg-red-50' : 'bg-secondary/40'}`}>
+              <Checkbox
+                id="declaration"
+                checked={form.declarationAccepted}
+                onCheckedChange={(checked) => updateField('declarationAccepted', !!checked)}
+                className="mt-0.5 shrink-0"
+              />
+              <Label
+                htmlFor="declaration"
+                className={`text-xs leading-relaxed cursor-pointer ${errors.declarationAccepted ? 'text-red-700' : 'text-muted-foreground'}`}
+              >
+                {t('declaration.label' as TK)}
+              </Label>
+            </div>
+            {errors.declarationAccepted && (
+              <p className="text-xs text-red-500 mt-1.5 ml-1">{errors.declarationAccepted}</p>
+            )}
           </div>
         </div>
       </div>

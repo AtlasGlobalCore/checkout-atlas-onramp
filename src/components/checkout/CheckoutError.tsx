@@ -74,7 +74,7 @@ export default function CheckoutError({ type, onRetry }: CheckoutErrorProps) {
             transition={{ delay: 0.3 }}
           >
             <RefreshCw className="size-4" />
-            {t('btn.loading')}
+            {t('btn.retry')}
           </motion.button>
         )}
       </motion.div>

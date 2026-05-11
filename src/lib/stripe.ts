@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { db } from '@/lib/db';
 
 // ─── Stripe SDK Instance ──────────────────────────────────────────
 let _stripe: Stripe | null = null;
@@ -134,5 +135,84 @@ export function verifyStripeWebhook(payload: string, signature: string): boolean
     return true;
   } catch {
     return false;
+  }
+}
+
+// ─── Audit Logging ───────────────────────────────────────────────
+export async function logAudit(
+  action: string,
+  sessionId: string | undefined,
+  metadata: Record<string, unknown>
+): Promise<void> {
+  try {
+    await db.auditLog.create({
+      data: {
+        sessionId: sessionId || null,
+        action,
+        metadata: JSON.stringify(metadata),
+      },
+    });
+  } catch (error) {
+    console.error('Audit log error:', error);
+    // Non-blocking: don't throw on audit failure
+  }
+}
+
+// ─── CRM Forwarding ─────────────────────────────────────────────
+export async function forwardToCRM(
+  sessionId: string,
+  payload: {
+    orderRef: string;
+    merchantRef?: string | null;
+    amount: number;
+    currency: string;
+    customerEmail?: string | null;
+    customerName?: string;
+    status: string;
+    paymentIntentId?: string;
+    source?: string;
+  }
+): Promise<void> {
+  const crmUrl = process.env.ATLAS_CRM_WEBHOOK_URL;
+  const crmApiKey = process.env.ATLAS_API_KEY;
+
+  if (!crmUrl) {
+    console.warn('ATLAS_CRM_WEBHOOK_URL not configured, skipping CRM forward');
+    return;
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (crmApiKey) {
+      headers['Authorization'] = `Bearer ${crmApiKey}`;
+    }
+
+    const response = await fetch(crmUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        sessionId,
+        ...payload,
+        forwardedAt: new Date().toISOString(),
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`CRM forward failed: ${response.status} ${response.statusText}`);
+    } else {
+      // Mark as forwarded in DB
+      await db.checkoutSession.update({
+        where: { id: sessionId },
+        data: {
+          crmForwarded: true,
+          crmForwardedAt: new Date(),
+        },
+      });
+    }
+  } catch (error) {
+    console.error('CRM forward error:', error);
+    // Non-blocking: don't throw on CRM failure
   }
 }

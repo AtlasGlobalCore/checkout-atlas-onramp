@@ -14,22 +14,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SafePay - Checkout Seguro",
-  description: "Complete a sua compra de forma segura com SafePay. Pagamento rapido, fiavel e protegido.",
-  keywords: ["SafePay", "Checkout", "Pagamento", "Seguro", "SSL"],
-  authors: [{ name: "SafePay" }],
+  title: "Atlas Payments - Checkout Seguro",
+  description: "Complete a sua compra de forma segura com Atlas Payments. Pagamento rapido, fiavel e protegido.",
+  keywords: ["Atlas", "Atlas Payments", "Checkout", "Pagamento", "Seguro", "SSL"],
+  authors: [{ name: "Atlas Global" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/logo-atlas.jpg",
   },
   openGraph: {
-    title: "SafePay - Checkout Seguro",
-    description: "Pagamento seguro processado por SafePay",
+    title: "Atlas Payments - Checkout Seguro",
+    description: "Pagamento seguro processado por Atlas Payments",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "SafePay - Checkout Seguro",
-    description: "Pagamento seguro processado por SafePay",
+    title: "Atlas Payments - Checkout Seguro",
+    description: "Pagamento seguro processado por Atlas Payments",
   },
 };
 

@@ -96,6 +96,11 @@ const translations = {
     'footer.secure': 'Checkout seguro encriptado com SSL',
     'footer.rights': 'Todos os direitos reservados.',
 
+    // Declaration (Pre-KYC L1)
+    'declaration.label': 'Declaro que os dados fornecidos são verdadeiros e completos. Autorizo a verificação dos mesmos para fins de conformidade regulamentar.',
+    'declaration.error': 'Deve aceitar a declaração para prosseguir.',
+    'prekyc.rejected': 'A verificação dos seus dados não foi concluída com sucesso. Por favor, verifique e tente novamente.',
+
     // Validation
     'validation.required': 'Este campo é obrigatório',
     'validation.email': 'Introduza um email válido',
@@ -193,6 +198,12 @@ const translations = {
     'footer.secure': 'Secure SSL-encrypted checkout',
     'footer.rights': 'All rights reserved.',
 
+    // Declaration (Pre-KYC L1)
+    'declaration.label': 'I declare that the information provided is true and complete. I authorize verification of this data for regulatory compliance purposes.',
+    'declaration.error': 'You must accept the declaration to continue.',
+    'prekyc.rejected': 'Your data verification was not successful. Please check and try again.',
+
+    // Validation
     'validation.required': 'This field is required',
     'validation.email': 'Enter a valid email',
     'validation.phone': 'Enter a valid phone number',
@@ -288,6 +299,12 @@ const translations = {
     'footer.secure': 'Pago seguro con cifrado SSL',
     'footer.rights': 'Todos los derechos reservados.',
 
+    // Declaration (Pre-KYC L1)
+    'declaration.label': 'Declaro que los datos proporcionados son veraces y completos. Autorizo la verificación de los mismos con fines de cumplimiento normativo.',
+    'declaration.error': 'Debe aceptar la declaración para continuar.',
+    'prekyc.rejected': 'La verificación de sus datos no se completó con éxito. Por favor, verifique e intente de nuevo.',
+
+    // Validation
     'validation.required': 'Este campo es obligatorio',
     'validation.email': 'Introduzca un email válido',
     'validation.phone': 'Introduzca un número de teléfono válido',
@@ -383,6 +400,12 @@ const translations = {
     'footer.secure': 'Paiement sécurisé avec cryptage SSL',
     'footer.rights': 'Tous droits réservés.',
 
+    // Declaration (Pre-KYC L1)
+    'declaration.label': 'Je déclare que les informations fournies sont exactes et complètes. J\'autorise la vérification de ces données à des fins de conformité réglementaire.',
+    'declaration.error': 'Vous devez accepter la déclaration pour continuer.',
+    'prekyc.rejected': 'La vérification de vos données n\'a pas abouti. Veuillez vérifier et réessayer.',
+
+    // Validation
     'validation.required': 'Ce champ est obligatoire',
     'validation.email': 'Entrez un email valide',
     'validation.phone': 'Entrez un numéro de téléphone valide',

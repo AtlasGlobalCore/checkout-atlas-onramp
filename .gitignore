@@ -50,5 +50,21 @@ test
 prompt
 
 server.log
+
+# Database files
+/db/*.db
+/db/*.db-journal
+
+# Z.ai scripts
+.zscripts/
+
 # Skills directory
 /skills/
+
+# Upload artifacts
+/upload/
+/download/
+
+# JSON reference docs (downloaded from Stripe/API)
+docs-*.json
+stripe-*.json

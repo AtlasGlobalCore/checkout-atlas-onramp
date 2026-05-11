@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { forwardToCRM, logAudit } from '@/lib/stripe';
+import { evaluateL1, DECLARATION_TEXT_VERSION, type PreKycL1Status } from '@/lib/prekyc-l1';
 
-// POST /api/checkout/submit-customer - Customer submits personal data
+// POST /api/checkout/submit-customer
+// Validates customer data, runs L1 declarative evaluation, persists result.
+// Returns L1 status to the frontend so it can decide whether to allow payment.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, email, phone, firstName, lastName, dob, country, address1, address2, city, zip, state } = body;
+    const {
+      sessionId,
+      email,
+      phone,
+      firstName,
+      lastName,
+      dob,
+      country,
+      address1,
+      address2,
+      city,
+      zip,
+      state,
+      declarationAccepted,
+      declarationTextVersion,
+    } = body;
 
     if (!sessionId) {
       return NextResponse.json(
@@ -15,7 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate required fields
+    // Basic required-field guard (format-level, not L1 rules)
     if (!email || !firstName || !lastName || !country || !address1 || !city || !zip) {
       return NextResponse.json(
         { error: 'All required fields must be filled', code: 'validation_error' },
@@ -23,7 +40,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find and validate session
+    // ── Load session ────────────────────────────────────────
     const session = await db.checkoutSession.findUnique({
       where: { id: sessionId },
       include: { merchant: true },
@@ -50,7 +67,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update session with customer data
+    // ── L1 Declarative Evaluation ───────────────────────────
+    const l1Result = evaluateL1({
+      email,
+      firstName,
+      lastName,
+      country,
+      declarationAccepted,
+      declarationTextVersion,
+    });
+
+    const approvedVersion = l1Result.approved
+      ? (declarationTextVersion || DECLARATION_TEXT_VERSION)
+      : null;
+
+    // ── Persist customer data + L1 result ───────────────────
     const updatedSession = await db.checkoutSession.update({
       where: { id: sessionId },
       data: {
@@ -65,44 +96,49 @@ export async function POST(request: NextRequest) {
         customerCity: city,
         customerZip: zip,
         customerState: state || null,
-        status: 'collecting_data',
+
+        // Pre-KYC L1 fields
+        preKycStatus: l1Result.status,
+        preKycL1RejectedReason: l1Result.approved ? null : JSON.stringify(l1Result.errors),
+        preKycL1ApprovedAt: l1Result.approved ? new Date() : null,
+        declarationAccepted: declarationAccepted === true,
+        declarationTextVersion: approvedVersion,
+
+        status: l1Result.approved ? 'l1_approved' : 'collecting_data',
       },
     });
 
-    // Forward customer data to Atlas CRM (async, non-blocking)
-    const customerData = {
-      email, phone, firstName, lastName, dob, country,
-      address1, address2, city, zip, state,
-      storeName: session.merchant.name,
-      storeRef: session.merchant.ref,
-      orderRef: session.ref,
-      merchantRef: session.merchantRef,
-      product: session.productName,
-      amount: session.amount,
-      currency: session.currency,
-    };
+    // ── Audit log ───────────────────────────────────────────
+    const auditAction = l1Result.approved
+      ? 'prekyc_l1_approved'
+      : 'prekyc_l1_rejected';
 
-    forwardToCRM(sessionId, customerData).then(success => {
-      if (success) {
-        db.checkoutSession.update({
-          where: { id: sessionId },
-          data: { crmForwarded: true, crmForwardedAt: new Date() },
-        }).catch(() => {});
-      }
-    }).catch(() => {});
-
-    await logAudit('customer_data_submitted', sessionId, {
-      email,
-      country,
-      firstName: firstName,
-      lastName: lastName,
+    await db.auditLog.create({
+      data: {
+        sessionId,
+        action: auditAction,
+        metadata: JSON.stringify({
+          email,
+          country,
+          firstName,
+          lastName,
+          declarationAccepted,
+          declarationTextVersion,
+          l1Errors: l1Result.errors,
+        }),
+      },
     });
 
+    // ── Response ────────────────────────────────────────────
     return NextResponse.json({
       success: true,
       data: {
         sessionId: updatedSession.id,
         status: updatedSession.status,
+        preKyc: {
+          status: l1Result.status,
+          errors: l1Result.approved ? [] : l1Result.errors,
+        },
       },
     });
   } catch (error) {

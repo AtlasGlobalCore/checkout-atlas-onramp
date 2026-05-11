@@ -68,6 +68,13 @@ model CheckoutSession {
   customerZip       String?      @map("customer_zip")
   customerState     String?      @map("customer_state")     // State/Province
 
+  // Pre-KYC L1 Declarative
+  preKycStatus           String    @default("pending") @map("pre_kyc_status")     // pending | approved | rejected
+  preKycL1RejectedReason String?   @map("pre_kyc_l1_rejected_reason")           // JSON array of error codes
+  preKycL1ApprovedAt     DateTime? @map("pre_kyc_l1_approved_at")
+  declarationAccepted    Boolean   @default(false) @map("declaration_accepted")
+  declarationTextVersion String?   @map("declaration_text_version")              // e.g. "1.0"
+
   // Atlas CRM forwarding
   crmForwarded      Boolean      @default(false) @map("crm_forwarded")
   crmForwardedAt    DateTime?    @map("crm_forwarded_at")
