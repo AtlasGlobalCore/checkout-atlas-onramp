@@ -48,3 +48,33 @@ Stage Summary:
 - All lint checks passing
 - Commit ready locally, needs manual push to GitHub
 - README fully rewritten with deploy instructions (GitHub → Vercel)
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Sprint A — Webhook hardening (idempotency + strict mode) + deploy to Vercel
+
+Work Log:
+- PASSO 1: Added `WebhookEvent` model to `prisma/schema.prisma` with unique `stripeEventId` constraint
+  - Ran `bun run db:push` successfully — schema synced, Prisma Client regenerated
+- PASSO 2: Completely rewrote `src/app/api/webhooks/stripe/route.ts`:
+  - Strict mode: rejects requests in production without `STRIPE_WEBHOOK_SECRET`
+  - Idempotency: checks `WebhookEvent` table before processing, skips duplicates
+  - Crypto Onramp: structured status mapping via `crypto.onramp_session.updated`:
+    - `fulfillment_complete` → session = paid + CRM forward
+    - `rejected` → session = failed
+    - `requires_payment` / `fulfillment_processing` → session = processing
+    - `canceled` → session = cancelled
+  - Payment Intent events preserved for Phase 2 (embedded checkout flow)
+  - All events persisted to WebhookEvent table after processing
+  - Comprehensive logging with `[STRIPE WEBHOOK]` prefix
+- Lint check: 0 errors
+- Committed: `feat(checkout): webhook idempotency and strict mode`
+- Push to GitHub: FAILED (no credentials in dev environment)
+- Vercel deploy: FAILED (no Vercel token in dev environment)
+
+Stage Summary:
+- Webhook handler fully hardened: idempotent, strict mode, structured logging
+- 2 files changed: +170, -122
+- 3 commits ready locally (cannot push from this sandbox)
+- User needs to: `git push origin main` + `vercel --prod --yes` from local machine
