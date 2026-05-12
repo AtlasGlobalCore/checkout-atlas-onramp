@@ -95,3 +95,14 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+// ─── Stripe Webhook Idempotency ────────────────────────────────────
+model WebhookEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique @map("stripe_event_id")
+  type          String
+  status        String   @default("processed") // processed | failed
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("webhook_events")
+}
