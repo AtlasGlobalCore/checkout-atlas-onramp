@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     // ── Handle Crypto Onramp events (primary flow) ────────────
     // Note: crypto.onramp_session.updated is not in Stripe SDK types but is a valid event
-    if ((event as any).type === 'crypto.onramp_session.updated' || event.type === 'crypto.onramp_session.updated') {
+    if ((event as any).type === 'crypto.onramp_session.updated') {
       const onrampSession = (event as any).data?.object as any;
       const stripeSessionId = onrampSession?.id;
       const status = onrampSession?.status;
