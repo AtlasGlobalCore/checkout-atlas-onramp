@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const { db } = await import('@/lib/db');
     const Stripe = (await import('stripe')).default;
     const stripe = new Stripe(stripeKey, {
-      apiVersion: '2025-04-30.basil',
+      apiVersion: '2026-04-22.dahlia',
     });
 
     const session = await db.checkoutSession.findUnique({

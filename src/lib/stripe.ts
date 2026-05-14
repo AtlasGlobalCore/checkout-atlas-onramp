@@ -9,7 +9,7 @@ export function getStripe(): Stripe | null {
   if (!key) return null;
   if (!_stripe) {
     _stripe = new Stripe(key, {
-      apiVersion: '2025-04-30.basil',
+      apiVersion: '2026-04-22.dahlia',
     });
   }
   return _stripe;
@@ -102,7 +102,7 @@ export async function createOnrampSession(params: StripeOnrampSessionParams): Pr
     headers: {
       'Authorization': `Bearer ${stripeKey}`,
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Stripe-Version': '2025-04-30.basil',
+      'Stripe-Version': '2026-04-22.dahlia',
     },
     body: body.toString(),
   });

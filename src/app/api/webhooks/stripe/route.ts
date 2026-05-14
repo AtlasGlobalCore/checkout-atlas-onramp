@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     if (webhookSecret) {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-        apiVersion: '2025-04-30.basil' as any,
+        apiVersion: '2026-04-22.dahlia',
       });
       try {
         event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
@@ -57,8 +57,9 @@ export async function POST(request: NextRequest) {
     });
 
     // ── Handle Crypto Onramp events (primary flow) ────────────
-    if (event.type === 'crypto.onramp_session.updated') {
-      const onrampSession = event.data?.object as any;
+    // Note: crypto.onramp_session.updated is not in Stripe SDK types but is a valid event
+    if ((event as any).type === 'crypto.onramp_session.updated' || event.type === 'crypto.onramp_session.updated') {
+      const onrampSession = (event as any).data?.object as any;
       const stripeSessionId = onrampSession?.id;
       const status = onrampSession?.status;
 

@@ -431,7 +431,7 @@ const translations = {
 export type TranslationKey = keyof typeof translations.pt;
 
 export function t(key: TranslationKey, locale: Locale = defaultLocale, params?: Record<string, string | number>): string {
-  let text = translations[locale]?.[key] || translations[defaultLocale]?.[key] || key;
+  let text: string = translations[locale]?.[key] || translations[defaultLocale]?.[key] || key;
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       text = text.replace(`{${k}}`, String(v));

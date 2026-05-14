@@ -27,7 +27,7 @@ export default function StripePaymentForm({
   useEffect(() => {
     if (!elements) return;
 
-    const element = elements.getElement(PaymentElement);
+    const element = elements.getElement(PaymentElement) as any;
     if (!element) return;
 
     const handleReady = () => setIsLoading(false);

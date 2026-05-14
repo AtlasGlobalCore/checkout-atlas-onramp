@@ -90,7 +90,8 @@ export default function CustomerForm({ initialData, onSubmit, onBack }: Customer
       'firstName', 'lastName', 'country', 'address1', 'city', 'zip',
     ];
     for (const field of requiredFields) {
-      if (!form[field].trim()) {
+      const value = form[field];
+      if (typeof value !== 'string' || !value.trim()) {
         newErrors[field] = t('validation.required' as TK);
       }
     }
