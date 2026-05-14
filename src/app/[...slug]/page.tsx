@@ -199,6 +199,7 @@ function CheckoutPageInner({
             city: data.customer?.city || '',
             zip: data.customer?.zip || '',
             state: data.customer?.state || '',
+            declarationAccepted: data.customer?.declarationAccepted || false,
           },
         });
       } catch {
